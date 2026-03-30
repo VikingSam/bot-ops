@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Operations — Command Center</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg: #0a0a0f;
+            --card: #12121a;
+            --card-border: #1e1e2e;
+            --text: #e0e0e0;
+            --text-dim: #888;
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --green: #22c55e;
+            --green-dim: rgba(34, 197, 94, 0.15);
+            --red: #ef4444;
+            --red-dim: rgba(239, 68, 68, 0.15);
+            --yellow: #eab308;
+            --yellow-dim: rgba(234, 179, 8, 0.15);
+            --orange: #f97316;
+            --blue: #3b82f6;
+            --purple: #a855f7;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .header h1 span { color: var(--accent); }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .last-updated {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .refresh-btn {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            color: var(--text);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover { border-color: var(--accent); }
+        .refresh-btn.loading { opacity: 0.5; pointer-events: none; }
+
+        /* Status bar */
+        .status-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-card .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+
+        .stat-card .sub {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 4px;
+        }
+
+        .stat-card.green .value { color: var(--green); }
+        .stat-card.red .value { color: var(--red); }
+        .stat-card.yellow .value { color: var(--yellow); }
+        .stat-card.blue .value { color: var(--blue); }
+        .stat-card.purple .value { color: var(--purple); }
+        .stat-card.accent .value { color: var(--accent); }
+
+        /* Grid layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 480px) {
+            .grid { grid-template-columns: 1fr; }
+            .status-bar { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .panel-header h2 {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: -0.2px;
+        }
+
+        .panel-badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .badge-green { background: var(--green-dim); color: var(--green); }
+        .badge-red { background: var(--red-dim); color: var(--red); }
+        .badge-yellow { background: var(--yellow-dim); color: var(--yellow); }
+
+        .panel-body { padding: 12px 16px; }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-dim);
+            text-align: left;
+            padding: 8px 8px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .data-table td {
+            font-size: 13px;
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .data-table tr:last-child td { border-bottom: none; }
+
+        /* Status pills */
+        .pill {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .pill-success { background: var(--green-dim); color: var(--green); }
+        .pill-failed { background: var(--red-dim); color: var(--red); }
+        .pill-running { background: var(--yellow-dim); color: var(--yellow); }
+        .pill-timeout { background: rgba(249,115,22,0.15); color: var(--orange); }
+        .pill-pending { background: rgba(136,136,136,0.15); color: var(--text-dim); }
+        .pill-draft { background: var(--yellow-dim); color: var(--yellow); }
+        .pill-tested { background: rgba(59,130,246,0.15); color: var(--blue); }
+        .pill-proven { background: var(--green-dim); color: var(--green); }
+
+        /* Site status list */
+        .site-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .site-row:last-child { border-bottom: none; }
+
+        .site-name {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .site-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+        .dot-red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+        .dot-yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+
+        /* Warnings section */
+        .warning-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+            font-size: 13px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .warning-item:last-child { border-bottom: none; }
+        .warning-icon { font-size: 16px; }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-dim);
+            font-size: 13px;
+        }
+
+        /* Loading */
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--card-border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Full width panel */
+        .full-width { grid-column: 1 / -1; }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔪 <span>Bot Operations</span> — Command Center</h1>
+        <div class="header-right">
+            <span class="last-updated" id="lastUpdated">Loading...</span>
+            <button class="refresh-btn" onclick="refreshAll()" id="refreshBtn">↻ Refresh</button>
+        </div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="status-bar" id="statusBar">
+        <div class="stat-card green">
+            <div class="label">Sites Up</div>
+            <div class="value" id="sitesUp">—</div>
+            <div class="sub" id="sitesTotal">of — sites</div>
+        </div>
+        <div class="stat-card blue">
+            <div class="label">Bots Deployed</div>
+            <div class="value" id="botsTotal">—</div>
+            <div class="sub" id="botsToday">today</div>
+        </div>
+        <div class="stat-card purple">
+            <div class="label">Playbooks</div>
+            <div class="value" id="playbooksTotal">—</div>
+            <div class="sub" id="playbooksProven">proven</div>
+        </div>
+        <div class="stat-card accent">
+            <div class="label">Success Rate</div>
+            <div class="value" id="successRate">—</div>
+            <div class="sub">all time</div>
+        </div>
+        <div class="stat-card yellow">
+            <div class="label">Warnings</div>
+            <div class="value" id="warningsCount">—</div>
+            <div class="sub">active</div>
+        </div>
+        <div class="stat-card" style="border-left: 2px solid var(--accent);">
+            <div class="label">Server</div>
+            <div class="value" id="diskUsage">—</div>
+            <div class="sub" id="ramInfo">disk used</div>
+        </div>
+    </div>
+
+    <!-- Main grid -->
+    <div class="grid">
+        <!-- Recent Bot Deployments -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2>🤖 Recent Bot Deployments</h2>
+            </div>
+            <div class="panel-body" id="deploymentsBody">
+                <div class="empty-state"><div class="loading-spinner"></div><br>Loading...</div>
+            </div>
+        </div>
+
+        <!-- Playbook Registry -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2>📋 Playbook Registry</h2>
+            </div>
+            <div class="panel-body" id="playbooksBody">
+                <div class="empty-state"><div class="loading-spinner"></div><br>Loading...</div>
+            </div>
+        </div>
+
+        <!-- Site Monitoring -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2>🌐 Site Health</h2>
+                <span class="panel-badge badge-green" id="sitesBadge">Loading</span>
+            </div>
+            <div class="panel-body" id="sitesBody">
+                <div class="empty-state"><div class="loading-spinner"></div><br>Loading...</div>
+            </div>
+        </div>
+
+        <!-- Warnings & Alerts -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2>⚠️ Active Warnings</h2>
+            </div>
+            <div class="panel-body" id="warningsBody">
+                <div class="empty-state"><div class="loading-spinner"></div><br>Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-width panels -->
+    <div class="grid">
+        <!-- QB Activity -->
+        <div class="panel full-width">
+            <div class="panel-header">
+                <h2>📊 Recent QB Activity</h2>
+            </div>
+            <div class="panel-body" id="qbBody">
+                <div class="empty-state"><div class="loading-spinner"></div><br>Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        🔪 Blade Ridgeway — Bot Operations Command Center — Data from Airtable via Maton API
+    </div>
+
+    <script>
+        const CONFIG = {
+            // Proxy endpoint — dashboard calls our local API proxy to avoid exposing keys
+            apiBase: '/api',
+            refreshInterval: 300000, // 5 minutes
+        };
+
+        // ── Data fetching ──────────────────────────────────────
+        async function fetchTable(tableName, params = '') {
+            try {
+                const encoded = encodeURIComponent(tableName);
+                const resp = await fetch(`${CONFIG.apiBase}/${encoded}${params}`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                return data.records || [];
+            } catch (e) {
+                console.error(`Failed to fetch ${tableName}:`, e);
+                return [];
+            }
+        }
+
+        // ── Renderers ──────────────────────────────────────────
+
+        function renderDeployments(records) {
+            const el = document.getElementById('deploymentsBody');
+            if (!records.length) {
+                el.innerHTML = '<div class="empty-state">No deployments yet. First bot run will appear here.</div>';
+                return;
+            }
+
+            const sorted = records.sort((a, b) => 
+                new Date(b.fields['Started'] || 0) - new Date(a.fields['Started'] || 0)
+            ).slice(0, 10);
+
+            let html = '<table class="data-table"><thead><tr><th>Mission</th><th>Model</th><th>Status</th><th>Runtime</th><th>Tokens</th></tr></thead><tbody>';
+            for (const r of sorted) {
+                const f = r.fields;
+                const statusClass = {
+                    'Success': 'pill-success', 'Failed': 'pill-failed',
+                    'Running': 'pill-running', 'Timeout': 'pill-timeout'
+                }[f['Status']] || 'pill-pending';
+                const runtime = f['Runtime (sec)'] ? `${f['Runtime (sec)']}s` : '—';
+                const tokens = f['Tokens Used'] ? f['Tokens Used'].toLocaleString() : '—';
+                html += `<tr>
+                    <td>${f['Mission'] || '—'}</td>
+                    <td>${f['Bot Model'] || '—'}</td>
+                    <td><span class="pill ${statusClass}">${f['Status'] || '—'}</span></td>
+                    <td>${runtime}</td>
+                    <td>${tokens}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            el.innerHTML = html;
+
+            // Update stats
+            const total = records.length;
+            const successes = records.filter(r => r.fields['Status'] === 'Success').length;
+            document.getElementById('botsTotal').textContent = total;
+            const today = new Date().toISOString().split('T')[0];
+            const todayCount = records.filter(r => (r.fields['Started'] || '').startsWith(today)).length;
+            document.getElementById('botsToday').textContent = `${todayCount} today`;
+            document.getElementById('successRate').textContent = total ? `${Math.round(successes/total*100)}%` : '—';
+        }
+
+        function renderPlaybooks(records) {
+            const el = document.getElementById('playbooksBody');
+            if (!records.length) {
+                el.innerHTML = '<div class="empty-state">No playbooks registered.</div>';
+                return;
+            }
+
+            let html = '<table class="data-table"><thead><tr><th>Playbook</th><th>Category</th><th>Status</th><th>Runs</th><th>Success %</th></tr></thead><tbody>';
+            for (const r of records) {
+                const f = r.fields;
+                const statusClass = {
+                    'Pending': 'pill-pending', 'Draft': 'pill-draft',
+                    'Tested': 'pill-tested', 'Proven': 'pill-proven', 'Failed': 'pill-failed'
+                }[f['Status']] || 'pill-pending';
+                html += `<tr>
+                    <td>${f['Playbook Name'] || '—'}</td>
+                    <td>${f['Category'] || '—'}</td>
+                    <td><span class="pill ${statusClass}">${f['Status'] || '—'}</span></td>
+                    <td>${f['Total Runs'] || 0}</td>
+                    <td>${f['Success Rate (%)'] != null ? f['Success Rate (%)'] + '%' : '—'}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            el.innerHTML = html;
+
+            document.getElementById('playbooksTotal').textContent = records.length;
+            const proven = records.filter(r => r.fields['Status'] === 'Proven').length;
+            document.getElementById('playbooksProven').textContent = `${proven} proven`;
+        }
+
+        function renderSiteMonitoring(records) {
+            const el = document.getElementById('sitesBody');
+            const badge = document.getElementById('sitesBadge');
+
+            if (!records.length) {
+                el.innerHTML = '<div class="empty-state">No monitoring data yet.</div>';
+                return;
+            }
+
+            const latest = records.sort((a, b) => 
+                new Date(b.fields['Check Date'] || 0) - new Date(a.fields['Check Date'] || 0)
+            )[0].fields;
+
+            const up = latest['Sites UP'] || 0;
+            const total = latest['Sites Checked'] || 0;
+            const down = latest['Sites DOWN'] || 0;
+            const disk = latest['Disk Usage (%)'];
+            const ram = latest['RAM Available (MB)'];
+            const status = latest['Overall Status'] || 'All Clear';
+
+            document.getElementById('sitesUp').textContent = up;
+            document.getElementById('sitesTotal').textContent = `of ${total} sites`;
+            document.getElementById('diskUsage').textContent = disk != null ? `${disk}%` : '—';
+            document.getElementById('ramInfo').textContent = ram != null ? `${ram}MB RAM free` : 'disk used';
+
+            // Badge
+            if (status === 'All Clear') {
+                badge.className = 'panel-badge badge-green';
+                badge.textContent = '✓ All Clear';
+            } else if (status === 'Critical') {
+                badge.className = 'panel-badge badge-red';
+                badge.textContent = '✗ Critical';
+            } else {
+                badge.className = 'panel-badge badge-yellow';
+                badge.textContent = '⚠ Warnings';
+            }
+
+            let html = '';
+
+            if (down > 0 && latest['DOWN Details']) {
+                html += `<div class="site-row"><span class="site-name" style="color:var(--red)">⛔ DOWN: ${latest['DOWN Details']}</span></div>`;
+            }
+
+            // Domain warnings
+            if (latest['Domain Warnings'] && latest['Domain Warnings'] !== 'None') {
+                const warnings = latest['Domain Warnings'].split('\n').filter(Boolean);
+                let warnCount = 0;
+                for (const w of warnings) {
+                    html += `<div class="warning-item"><span class="warning-icon">🌐</span><span>${w}</span></div>`;
+                    warnCount++;
+                }
+            }
+
+            // SSL warnings
+            if (latest['SSL Warnings'] && !latest['SSL Warnings'].toLowerCase().includes('none')) {
+                const warnings = latest['SSL Warnings'].split('\n').filter(Boolean);
+                for (const w of warnings) {
+                    html += `<div class="warning-item"><span class="warning-icon">🔒</span><span>${w}</span></div>`;
+                }
+            }
+
+            if (!html) {
+                html = '<div class="empty-state" style="color:var(--green)">✓ All sites healthy. No warnings.</div>';
+            }
+
+            // Last check time
+            const checkDate = new Date(latest['Check Date']);
+            const ago = timeSince(checkDate);
+            html += `<div style="text-align:center;padding-top:8px;font-size:11px;color:var(--text-dim)">Last check: ${ago}</div>`;
+
+            el.innerHTML = html;
+        }
+
+        function renderWarnings(monitoringRecords, playbookRecords) {
+            const el = document.getElementById('warningsBody');
+            let warnings = [];
+
+            // Site monitoring warnings
+            if (monitoringRecords.length) {
+                const latest = monitoringRecords.sort((a, b) => 
+                    new Date(b.fields['Check Date'] || 0) - new Date(a.fields['Check Date'] || 0)
+                )[0].fields;
+
+                if (latest['Sites DOWN'] > 0) {
+                    warnings.push({ icon: '🔴', text: `${latest['Sites DOWN']} site(s) DOWN: ${latest['DOWN Details'] || 'unknown'}`, severity: 'critical' });
+                }
+                if (latest['Domain Warnings'] && !latest['Domain Warnings'].toLowerCase().includes('none')) {
+                    warnings.push({ icon: '🌐', text: `Domain: ${latest['Domain Warnings']}`, severity: 'warning' });
+                }
+                if (latest['SSL Warnings'] && !latest['SSL Warnings'].toLowerCase().includes('none')) {
+                    warnings.push({ icon: '🔒', text: `SSL: ${latest['SSL Warnings']}`, severity: 'warning' });
+                }
+                if (latest['Disk Usage (%)'] > 80) {
+                    warnings.push({ icon: '💾', text: `Disk usage at ${latest['Disk Usage (%)']}%`, severity: 'critical' });
+                }
+            }
+
+            // Failed playbooks
+            const failed = playbookRecords.filter(r => r.fields['Status'] === 'Failed');
+            for (const f of failed) {
+                warnings.push({ icon: '📋', text: `Playbook "${f.fields['Playbook Name']}" in failed state`, severity: 'warning' });
+            }
+
+            document.getElementById('warningsCount').textContent = warnings.length;
+
+            if (!warnings.length) {
+                el.innerHTML = '<div class="empty-state" style="color:var(--green)">✓ No active warnings</div>';
+                return;
+            }
+
+            let html = '';
+            for (const w of warnings) {
+                const color = w.severity === 'critical' ? 'var(--red)' : 'var(--yellow)';
+                html += `<div class="warning-item"><span class="warning-icon">${w.icon}</span><span style="color:${color}">${w.text}</span></div>`;
+            }
+            el.innerHTML = html;
+        }
+
+        function renderQBActivity(records) {
+            const el = document.getElementById('qbBody');
+            if (!records.length) {
+                el.innerHTML = '<div class="empty-state">No QB activity logged yet. Bot reconciliation runs will appear here.</div>';
+                return;
+            }
+
+            const sorted = records.sort((a, b) => 
+                new Date(b.fields['Date'] || 0) - new Date(a.fields['Date'] || 0)
+            ).slice(0, 15);
+
+            let html = '<table class="data-table"><thead><tr><th>Date</th><th>Company</th><th>Action</th><th>Txns</th><th>Amount</th><th>Details</th></tr></thead><tbody>';
+            for (const r of sorted) {
+                const f = r.fields;
+                const date = f['Date'] ? new Date(f['Date']).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '—';
+                const amount = f['Total Amount ($)'] != null ? `$${f['Total Amount ($)'].toLocaleString()}` : '—';
+                const details = f['Details'] ? (f['Details'].length > 50 ? f['Details'].substring(0,50) + '...' : f['Details']) : '—';
+                html += `<tr>
+                    <td>${date}</td>
+                    <td>${f['Company'] || '—'}</td>
+                    <td>${f['Action'] || '—'}</td>
+                    <td>${f['Transactions'] || '—'}</td>
+                    <td>${amount}</td>
+                    <td style="color:var(--text-dim);font-size:12px">${details}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            el.innerHTML = html;
+        }
+
+        // ── Utility ────────────────────────────────────────────
+        function timeSince(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return 'just now';
+            if (seconds < 3600) return `${Math.floor(seconds/60)}m ago`;
+            if (seconds < 86400) return `${Math.floor(seconds/3600)}h ago`;
+            return `${Math.floor(seconds/86400)}d ago`;
+        }
+
+        // ── Main refresh ───────────────────────────────────────
+        async function refreshAll() {
+            const btn = document.getElementById('refreshBtn');
+            btn.classList.add('loading');
+            btn.textContent = '↻ Loading...';
+
+            try {
+                const [deployments, playbooks, monitoring, qb] = await Promise.all([
+                    fetchTable('Bot Deployments', '?sort[0][field]=Started&sort[0][direction]=desc&maxRecords=20'),
+                    fetchTable('Playbook Registry'),
+                    fetchTable('Site Monitoring', '?sort[0][field]=Check Date&sort[0][direction]=desc&maxRecords=10'),
+                    fetchTable('QB Activity Log', '?sort[0][field]=Date&sort[0][direction]=desc&maxRecords=15'),
+                ]);
+
+                renderDeployments(deployments);
+                renderPlaybooks(playbooks);
+                renderSiteMonitoring(monitoring);
+                renderWarnings(monitoring, playbooks);
+                renderQBActivity(qb);
+
+                document.getElementById('lastUpdated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+            } catch (e) {
+                console.error('Refresh failed:', e);
+            }
+
+            btn.classList.remove('loading');
+            btn.textContent = '↻ Refresh';
+        }
+
+        // Auto-refresh
+        refreshAll();
+        setInterval(refreshAll, CONFIG.refreshInterval);
+    </script>
+</body>
+</html>
